@@ -22,6 +22,12 @@ export default function App() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
 
+  // ================================================
+  // FIX UTAMA ENV UNTUK VERCEL
+  // ================================================
+  const API_KEY =
+    import.meta.env.VITE_OPENROUTER_KEY || process.env.VITE_OPENROUTER_KEY;
+
   const formatHarga = (harga) => "Rp " + Number(harga).toLocaleString("id-ID");
 
   const formatMenu = () => {
@@ -29,7 +35,7 @@ export default function App() {
 NAMA WARUNG: ${taburaiData.nama_warung}
 PEMILIK: ${taburaiData.pemilik}
 JAM BUKA: ${taburaiData.jam_buka}
-  `;
+`;
 
     const menus = Object.entries(taburaiData)
       .filter(([key]) =>
@@ -93,7 +99,7 @@ ${userMessage}
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${import.meta.env.VITE_OPENROUTER_KEY}`,
+          Authorization: `Bearer ${API_KEY}`,
           "HTTP-Referer": window.location.origin,
           "X-Title": "Warung Taburai Chat",
         },
@@ -103,15 +109,21 @@ ${userMessage}
         }),
       });
 
+      if (!res.ok) {
+        throw new Error("Gagal menghubungi API");
+      }
+
       const data = await res.json();
+
       const aiText =
-        data?.choices?.[0]?.message?.content || "Maaf, Chatbot error 😢";
+        data?.choices?.[0]?.message?.content ||
+        "Maaf, Chatbot error saat membaca respon 😢";
 
       setMessages((prev) => [...prev, { role: "bot", text: aiText }]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: "bot", text: "⚠️ Gagal koneksi ke AI. Cek API KEY ya." },
+        { role: "bot", text: "⚠️ Gagal koneksi ke AI. Periksa API KEY ya." },
       ]);
     } finally {
       setIsTyping(false);
@@ -178,6 +190,12 @@ ${userMessage}
               ))}
             </div>
           ))}
+
+          {isTyping && (
+            <div className="my-1 p-2 rounded-lg bg-[#202c33] text-gray-300 w-fit">
+              Admin sedang mengetik...
+            </div>
+          )}
         </div>
 
         {/* INPUT */}
