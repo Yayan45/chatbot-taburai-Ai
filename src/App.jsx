@@ -25,11 +25,15 @@ export default function App() {
   const formatHarga = (harga) => "Rp " + Number(harga).toLocaleString("id-ID");
 
   const formatMenu = () => {
-    return Object.entries(taburaiData)
+    let header = `
+NAMA WARUNG: ${taburaiData.nama_warung}
+PEMILIK: ${taburaiData.pemilik}
+JAM BUKA: ${taburaiData.jam_buka}
+  `;
+
+    const menus = Object.entries(taburaiData)
       .filter(([key]) =>
         [
-          "pemilik",
-          "nama_warung",
           "menu_utama",
           "premium_paket",
           "buah",
@@ -47,7 +51,7 @@ export default function App() {
               return `- ${m.no}. ${m.lokasi}\n  Maps: ${m.maps}`;
             }
             return `- ${m.nama} (${
-              m.harga ? formatHarga(m.harga) : "Harga tidak tersedia"
+              m.harga ? formatHarga(m.harga) : "Maaf, data tidak tersedia."
             })${m.deskripsi ? ": " + m.deskripsi : ""}`;
           })
           .join("\n\n");
@@ -55,6 +59,8 @@ export default function App() {
         return `${judul}:\n\n${list}`;
       })
       .join("\n\n");
+
+    return header + "\n\n" + menus;
   };
 
   const sendMessage = async () => {
@@ -65,25 +71,22 @@ export default function App() {
     setInput("");
     setIsTyping(true);
 
+    const menuFormatted = formatMenu();
+
     const prompt = `
 Kamu adalah chatbot Warung Taburai.
-Jawaban harus ramah dan berdasarkan data restoran.
-
-Data:
-Nama Warung: ${taburaiData.nama_warung}
-Jam Buka: ${taburaiData.jam_buka}
+Jawaban harus:
+- Berdasarkan data yang tersedia.
+- Jika data tidak ada, balas "Maaf, data tidak tersedia."
+- Gunakan bahasa ramah seperti admin manusia.
+- Jangan ubah format menu; menu sudah diformat oleh sistem.
 
 Menu:
-${formatMenu()}
+${menuFormatted}
 
-Pertanyaan:
+Pertanyaan user:
 ${userMessage}
 `;
-
-    const referer =
-      window.location.hostname === "localhost"
-        ? "https://example.com"
-        : window.location.origin;
 
     try {
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
@@ -91,8 +94,8 @@ ${userMessage}
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${import.meta.env.VITE_OPENROUTER_KEY}`,
-          "HTTP-Referer": referer,
-          "X-Title": "Warung Taburai Chatbot",
+          "HTTP-Referer": window.location.origin,
+          "X-Title": "Warung Taburai Chat",
         },
         body: JSON.stringify({
           model: "openai/gpt-4o-mini",
@@ -100,20 +103,15 @@ ${userMessage}
         }),
       });
 
-      if (!res.ok) throw new Error("API error");
-
       const data = await res.json();
       const aiText =
-        data?.choices?.[0]?.message?.content || "⚠️ Tidak ada jawaban dari AI.";
+        data?.choices?.[0]?.message?.content || "Maaf, Chatbot error 😢";
 
       setMessages((prev) => [...prev, { role: "bot", text: aiText }]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        {
-          role: "bot",
-          text: "⚠️ Gagal menghubungkan ke server AI.\nCek kembali API key OpenRouter kamu ya!",
-        },
+        { role: "bot", text: "⚠️ Gagal koneksi ke AI. Cek API KEY ya." },
       ]);
     } finally {
       setIsTyping(false);
@@ -121,35 +119,55 @@ ${userMessage}
   };
 
   return (
-    <div className="h-screen w-full flex justify-center bg-[#111b21]">
-      <div className="w-full max-w-lg h-full flex flex-col bg-[#0b141a] border-x border-[#27343b]">
+    <div className="min-h-screen w-full flex justify-center items-center bg-[#111b21] p-2 sm:p-4">
+      <div
+        className="
+        w-full 
+        max-w-lg 
+        h-[90vh] sm:h-[95vh] 
+        flex flex-col 
+        bg-[#0b141a] 
+        rounded-lg 
+        overflow-hidden 
+        border border-[#27343b]
+      "
+      >
         {/* HEADER */}
         <div className="p-3 flex items-center gap-3 bg-[#202c33] text-white shadow-md">
           <img
             src={taburaiImg}
-            className="w-10 h-10 rounded-full object-cover border border-gray-500"
+            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border border-gray-500"
           />
-
           <div className="flex-1">
-            <p className="font-semibold text-sm">{taburaiData.nama_warung}</p>
-            <p className="text-xs text-gray-300">
+            <p className="font-semibold text-sm sm:text-base">
+              {taburaiData.nama_warung}
+            </p>
+            <p className="text-xs sm:text-sm text-gray-300">
               {isTyping ? "Mengetik..." : "online"}
             </p>
           </div>
 
-          <div className="flex items-center text-gray-300 gap-4 text-lg">
+          <div className="hidden sm:flex items-center text-gray-300 gap-4 text-lg">
             <FaPhone className="cursor-pointer hover:text-white" />
             <FaVideo className="cursor-pointer hover:text-white" />
             <FaEllipsisV className="cursor-pointer hover:text-white" />
           </div>
         </div>
 
-        {/* CHAT BODY */}
-        <div className="flex-1 overflow-y-auto p-3 bg-[url('https://upload.wikimedia.org/wikipedia/commons/8/89/Whatsapp_background.png')] bg-cover">
+        {/* CHAT AREA */}
+        <div
+          className="
+          flex-1 
+          overflow-y-auto 
+          p-3 
+          bg-[url('https://upload.wikimedia.org/wikipedia/commons/8/89/Whatsapp_background.png')] 
+          bg-cover
+        "
+        >
           {messages.map((msg, i) => (
             <div
               key={i}
-              className={`my-1 p-2 rounded-lg max-w-[80%] text-sm leading-relaxed shadow-sm ${
+              className={`my-1 p-2 rounded-lg max-w-[85%] sm:max-w-[75%] text-sm sm:text-base leading-relaxed shadow-sm ${
                 msg.role === "user"
                   ? "bg-[#005c4b] text-white ml-auto"
                   : "bg-[#202c33] text-gray-200 mr-auto"
@@ -162,25 +180,25 @@ ${userMessage}
           ))}
         </div>
 
-        {/* INPUT AREA */}
+        {/* INPUT */}
         <div className="p-3 flex gap-2 items-center bg-[#1f2c34] border-t border-[#233138]">
-          <FaSmile className="text-gray-400 text-xl cursor-pointer" />
-          <FaPaperclip className="text-gray-400 text-xl cursor-pointer" />
+          <FaSmile className="text-gray-400 text-xl cursor-pointer hidden sm:block" />
+          <FaPaperclip className="text-gray-400 text-xl cursor-pointer hidden sm:block" />
 
           <input
             type="text"
-            className="flex-1 bg-[#2a3942] text-gray-200 border border-[#3b4a54] rounded-lg px-3 py-2 focus:outline-none placeholder-gray-500"
+            className="flex-1 bg-[#2a3942] text-gray-200 border border-[#3b4a54] rounded-lg px-3 py-2 focus:outline-none placeholder-gray-500 text-sm sm:text-base"
             placeholder="Ketik pesan..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
           />
 
-          <FaMicrophone className="text-gray-400 text-xl cursor-pointer" />
+          <FaMicrophone className="text-gray-400 text-xl cursor-pointer hidden sm:block" />
 
           <button
             onClick={sendMessage}
-            className="bg-[#005c4b] hover:bg-[#036d59] text-white px-4 py-2 rounded-lg active:scale-95"
+            className="bg-[#005c4b] hover:bg-[#036d59] text-white px-4 py-2 rounded-lg active:scale-95 text-sm sm:text-base"
           >
             ➤
           </button>
