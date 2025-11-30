@@ -46,9 +46,8 @@ export default function App() {
             if (kategori === "cabang") {
               return `- ${m.no}. ${m.lokasi}\n  Maps: ${m.maps}`;
             }
-
             return `- ${m.nama} (${
-              m.harga ? formatHarga(m.harga) : "Maaf, data tidak tersedia."
+              m.harga ? formatHarga(m.harga) : "Harga tidak tersedia"
             })${m.deskripsi ? ": " + m.deskripsi : ""}`;
           })
           .join("\n\n");
@@ -66,42 +65,55 @@ export default function App() {
     setInput("");
     setIsTyping(true);
 
-    const menuFormatted = formatMenu();
-
     const prompt = `
 Kamu adalah chatbot Warung Taburai.
-Jawaban harus:
-- Berdasarkan data yang tersedia.
-- Jika data tidak ada, balas "Maaf, data tidak tersedia."
-- Gunakan bahasa ramah seperti admin manusia.
-- Jangan ubah format menu; menu sudah diformat oleh sistem.
+Jawaban harus ramah dan berdasarkan data restoran.
 
-Data Warung:
+Data:
 Nama Warung: ${taburaiData.nama_warung}
 Jam Buka: ${taburaiData.jam_buka}
-cabang: ${taburaiData.cabang}
 
-Menu (format sudah benar):
-${menuFormatted}
+Menu:
+${formatMenu()}
 
-Pertanyaan user:
+Pertanyaan:
 ${userMessage}
 `;
 
+    const referer =
+      window.location.hostname === "localhost"
+        ? "https://example.com"
+        : window.location.origin;
+
     try {
-      const res = await fetch("/api/chat", {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${import.meta.env.VITE_OPENROUTER_KEY}`,
+          "HTTP-Referer": referer,
+          "X-Title": "Warung Taburai Chatbot",
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+        }),
       });
 
-      const data = await res.json();
+      if (!res.ok) throw new Error("API error");
 
-      setMessages((prev) => [...prev, { role: "bot", text: data.reply }]);
+      const data = await res.json();
+      const aiText =
+        data?.choices?.[0]?.message?.content || "⚠️ Tidak ada jawaban dari AI.";
+
+      setMessages((prev) => [...prev, { role: "bot", text: aiText }]);
     } catch (err) {
       setMessages((prev) => [
         ...prev,
-        { role: "bot", text: "⚠️ Gagal koneksi ke server / API." },
+        {
+          role: "bot",
+          text: "⚠️ Gagal menghubungkan ke server AI.\nCek kembali API key OpenRouter kamu ya!",
+        },
       ]);
     } finally {
       setIsTyping(false);
@@ -111,16 +123,18 @@ ${userMessage}
   return (
     <div className="h-screen w-full flex justify-center bg-[#111b21]">
       <div className="w-full max-w-lg h-full flex flex-col bg-[#0b141a] border-x border-[#27343b]">
-
-        {/* Header */}
+        {/* HEADER */}
         <div className="p-3 flex items-center gap-3 bg-[#202c33] text-white shadow-md">
           <img
             src={taburaiImg}
             className="w-10 h-10 rounded-full object-cover border border-gray-500"
           />
+
           <div className="flex-1">
             <p className="font-semibold text-sm">{taburaiData.nama_warung}</p>
-            <p className="text-xs text-gray-300">{isTyping ? "Mengetik..." : "online"}</p>
+            <p className="text-xs text-gray-300">
+              {isTyping ? "Mengetik..." : "online"}
+            </p>
           </div>
 
           <div className="flex items-center text-gray-300 gap-4 text-lg">
@@ -130,12 +144,12 @@ ${userMessage}
           </div>
         </div>
 
-        {/* Chat Area */}
+        {/* CHAT BODY */}
         <div className="flex-1 overflow-y-auto p-3 bg-[url('https://upload.wikimedia.org/wikipedia/commons/8/89/Whatsapp_background.png')] bg-cover">
           {messages.map((msg, i) => (
             <div
               key={i}
-              className={`my-1 p-2 rounded-lg max-w-[80%] text-sm shadow-sm leading-relaxed ${
+              className={`my-1 p-2 rounded-lg max-w-[80%] text-sm leading-relaxed shadow-sm ${
                 msg.role === "user"
                   ? "bg-[#005c4b] text-white ml-auto"
                   : "bg-[#202c33] text-gray-200 mr-auto"
@@ -148,7 +162,7 @@ ${userMessage}
           ))}
         </div>
 
-        {/* Input */}
+        {/* INPUT AREA */}
         <div className="p-3 flex gap-2 items-center bg-[#1f2c34] border-t border-[#233138]">
           <FaSmile className="text-gray-400 text-xl cursor-pointer" />
           <FaPaperclip className="text-gray-400 text-xl cursor-pointer" />
